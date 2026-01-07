@@ -9,8 +9,8 @@ layout: "home"
 <div class="mx-auto">
   <p class="lead mt-3">Ship schema and configuration changes with confidence.</p>
   <div class="mx-auto mt-4">
-    <a class="btn btn-lg btn-primary me-3 mb-3" href="/docs/">Start the docs</a>
-    <a class="btn btn-lg btn-outline-light mb-3" href="/cli/">Explore the CLI</a>
+    <a class="btn btn-lg btn-primary me-3 mb-3" href="/cli/getting-started/">Get started!</a>
+    <a class="btn btn-lg btn-outline-light mb-3" href="/cli/reference/">Explore the CLI</a>
   </div>
 </div>
 {{< /blocks/cover >}}
@@ -28,7 +28,7 @@ Use it to standardize formatting, validate changes, and keep ownership clear as 
       <div class="card-body">
         <h3 class="card-title">Read the docs</h3>
         <p class="card-text">Learn concepts, workflows, and how Mergeway fits into your stack.</p>
-        <a class="btn btn-primary" href="/docs/">Docs overview</a>
+        <a class="btn btn-primary" href="/cli/">Docs overview</a>
       </div>
     </div>
   </div>
