@@ -37,7 +37,7 @@ Use it to standardize formatting, validate changes, and keep ownership clear as 
       <div class="card-body">
         <h3 class="card-title">Follow the guides</h3>
         <p class="card-text">Set up Mergeway in CI, pre-commit, and team workflows.</p>
-        <a class="btn btn-primary" href="/docs/guides/">View guides</a>
+        <a class="btn btn-primary" href="/cli/guides/">View guides</a>
       </div>
     </div>
   </div>

@@ -1,0 +1,20 @@
+{{- $dest := .Destination -}}
+
+{{- /* Leave external and already-absolute URLs alone */ -}}
+{{- if or (strings.HasPrefix $dest "http://") (strings.HasPrefix $dest "https://") (strings.HasPrefix $dest "/") -}}
+  <a href="{{ $dest | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>
+{{- else -}}
+  {{- /* Split anchor */ -}}
+  {{- $parts := split $dest "#" -}}
+  {{- $path := index $parts 0 -}}
+  {{- $frag := "" -}}
+  {{- if gt (len $parts) 1 -}}{{- $frag = printf "#%s" (index $parts 1) -}}{{- end -}}
+
+  {{- /* If it's a .md file link, try to resolve to a page */ -}}
+  {{- if strings.HasSuffix $path ".md" -}}
+    {{- $u := relref .Page $path -}}
+    <a href="{{ $u }}{{ $frag }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>
+  {{- else -}}
+    <a href="{{ $dest | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>
+  {{- end -}}
+{{- end -}}

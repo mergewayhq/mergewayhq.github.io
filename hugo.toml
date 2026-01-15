@@ -16,6 +16,7 @@ enableGitInfo = true
     disable = false
   [[module.imports]]
     path = "github.com/mergewayhq/mergeway-cli/docs"
+    target = "content/cli"
     disable = false
 
     # Getting started
@@ -53,39 +54,6 @@ enableGitInfo = true
       source = "src/README.md"
       target = "content/cli/_index.md"
 
-#    [[module.imports.mounts]]
-#      source = "src/cli-reference"
-#      target = "content/cli/reference"
-#      excludeFiles = ["README.md"]
-#    [[module.imports.mounts]]
-#      source = "src/cli-reference/README.md"
-#      target = "content/cli/reference/_index.md"
-#    [[module.imports.mounts]]
-#      source = "src/README.md"
-#      target = "content/cli/_index.md"
-#    [[module.imports.mounts]]
-#      source = "src/how-to"
-#      target = "content/cli/guides"
-#      excludeFiles = ["README.md"]
-#    [[module.imports.mounts]]
-#      source = "src/how-to/README.md"
-#      target = "content/cli/guides/_index.md"
-#    [[module.imports.mounts]]
-#      source = "src/getting-started.md"
-#      target = "content/cli/docs/getting-started.md"
-#    [[module.imports.mounts]]
-#      source = "src/installation.md"
-#      target = "content/cli/docs/installation.md"
-#    [[module.imports.mounts]]
-#      source = "src/concepts.md"
-#      target = "content/cli/docs/concepts.md"
-#    [[module.imports.mounts]]
-#      source = "src/schema-spec.md"
-#      target = "content/cli/docs/schema-spec.md"
-#    [[module.imports.mounts]]
-#      source = "arch/storage-layout.md"
-#      target = "content/cli/docs/arch/storage-layout.md"
-
 [params]
   copyright = "Mergeway"
   privacy_policy = ""
@@ -121,7 +89,3 @@ enableGitInfo = true
     name = "Guides"
     url = "/cli/guides/"
     weight = 30
-#  [[menu.main]]
-#    name = "Blog"
-#    url = "/blog/"
-#    weight = 40
