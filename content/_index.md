@@ -6,7 +6,11 @@ layout: "home"
 
 {{< blocks/cover title="Mergeway" image_anchor="top" height="auto" >}}
 
+
 <div class="mx-auto">
+  <img src="/images/logo-white.svg" style="width:300px;">
+  <br />
+  <br />
   <p class="lead mt-3">Ship schema and configuration changes with confidence.</p>
   <div class="mx-auto mt-4">
     <a class="btn btn-lg btn-primary me-3 mb-3" href="/cli/getting-started/">Get started!</a>

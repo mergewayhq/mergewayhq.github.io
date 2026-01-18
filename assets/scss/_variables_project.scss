@@ -4,3 +4,8 @@ https://www.docsy.dev/docs/content/lookandfeel/#project-style-files
 */
 
 $td-enable-google-fonts: true;
+
+.td-navbar .navbar-brand svg {
+    width: 50px;
+    fill: #fff;
+}
