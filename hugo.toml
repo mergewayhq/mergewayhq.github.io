@@ -89,3 +89,8 @@ enableGitInfo = true
     name = "Guides"
     url = "/cli/guides/"
     weight = 30
+  [[menu.main]]
+    url = "https://github.com/mergewayhq/mergeway-cli"
+    icon = "fab fa-github"
+    pre = "<i class='fab fa-github'></i>"
+    desc = "Source code on GitHub"
