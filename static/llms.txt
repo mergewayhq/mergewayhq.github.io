@@ -1,0 +1,32 @@
+
+# Mergeway CLI
+
+> Mergeway CLI is a command‑line tool for managing Mergeway workspaces. It enables you to set up repositories, define schemas, manipulate data objects and validate them. All commands share consistent global flags (e.g. `--root` for workspace path, `--config` for config file, `--format` for output format, `--fail‑fast`, `--yes`, and `--verbose`)https://mergewayhq.github.io/cli/reference/#:~:text=Every%20command%20shares%20a%20set,or%20after%20the%20command%20name.
+
+This tool works on YAML or JSON files in a structured workspace. Use the commands below to initialize a workspace, create or update objects, inspect schemas, format files, generate ERD diagrams and perform validations. For a primer on terms and schema format, see the documentation's Basic Concepts and Schema Format pages.
+
+## Commands
+
+- [config export](https://mergewayhq.github.io/cli/reference/config-export/): Emit a JSON Schema for a given type. Usage: `mergeway-cli config export --type <type>`https://mergewayhq.github.io/cli/reference/config-export/#:~:text=mergeway.
+- [config lint](https://mergewayhq.github.io/cli/reference/config-lint/): Validate configuration files (and includes) without touching data; run after editing `mergeway.yaml`https://mergewayhq.github.io/cli/reference/config-lint/#:~:text=mergeway.
+- [create](https://mergewayhq.github.io/cli/reference/create/): Create a new object file that conforms to an entity definition. Use `--type`, optionally `--file` to read data from a YAML/JSON file and `--id` to override the identifierhttps://mergewayhq.github.io/cli/reference/create/#:~:text=mergeway.
+- [delete](https://mergewayhq.github.io/cli/reference/delete/): Remove an object file from the workspace. Pass `--type` and the object ID; use `--yes` to bypass confirmationhttps://mergewayhq.github.io/cli/reference/delete/#:~:text=mergeway.
+- [entity list](https://mergewayhq.github.io/cli/reference/entity-list/): List every entity Mergeway discovers from your configuration; no flags requiredhttps://mergewayhq.github.io/cli/reference/entity-list/#:~:text=mergeway.
+- [entity show](https://mergewayhq.github.io/cli/reference/entity-show/): Print the normalized schema for a given entity; use `entity show <entity>` with optional `--format` for JSON outputhttps://mergewayhq.github.io/cli/reference/entity-show/#:~:text=mergeway.
+- [export](https://mergewayhq.github.io/cli/reference/export/): Export repository objects into a single YAML or JSON document. Optional `--output` writes to a file; you can specify which entities to includehttps://mergewayhq.github.io/cli/reference/export/#:~:text=mergeway.
+- [fmt](https://mergewayhq.github.io/cli/reference/fmt/): Format one or more data or configuration files using Mergeway’s canonical ordering. It can rewrite files in place (`--in‑place`), print to stdout (`--stdout`) or run in lint mode (`--lint`)https://mergewayhq.github.io/cli/reference/fmt/#:~:text=mergeway.
+- [gen‑erd](https://mergewayhq.github.io/cli/reference/gen-erd/): Generate an entity relationship diagram (ERD) of your data model. It requires Graphviz’s `dot` executable and writes to the path specified by `--path`https://mergewayhq.github.io/cli/reference/gen-erd/#:~:text=mergeway.
+- [get](https://mergewayhq.github.io/cli/reference/get/): Print the fields of one object. Pass `--type` and an object ID; optionally use `--format` to output JSONhttps://mergewayhq.github.io/cli/reference/get/#:~:text=mergeway.
+- [init](https://mergewayhq.github.io/cli/reference/init/): Scaffold the directory layout and default configuration for a Mergeway workspace at the specified root (default `.`)https://mergewayhq.github.io/cli/reference/init/#:~:text=mergeway.
+- [list](https://mergewayhq.github.io/cli/reference/list/): List object identifiers for a given type. You can add a `--filter key=value` to narrow resultshttps://mergewayhq.github.io/cli/reference/list/#:~:text=mergeway.
+- [update](https://mergewayhq.github.io/cli/reference/update/): Modify an existing object by replacing it or merging fields. Use `--type`, `--id`, optionally `--file` for the payload and `--merge` to merge fields instead of replacing the objecthttps://mergewayhq.github.io/cli/reference/update/#:~:text=mergeway.
+- [validate](https://mergewayhq.github.io/cli/reference/validate/): Check schemas, records and references and emit formatted errors. Run phases (`format`, `schema`, `references`) selectively with `--phase`, and use `--fail‑fast` to stop on the first errorhttps://mergewayhq.github.io/cli/reference/validate/#:~:text=mergeway.
+- [version](https://mergewayhq.github.io/cli/reference/version/): Display the CLI build metadata including semantic version, commit hash and build date; no flags requiredhttps://mergewayhq.github.io/cli/reference/version/#:~:text=mergeway.
+
+## Optional
+
+These pages provide additional context and walkthroughs:
+
+- [Example Walkthrough](https://mergewayhq.github.io/cli/guides/example-walkthrough/): A step‑by‑step example that demonstrates setting up a workspace, defining entities and performing operations.
+- [GitHub Actions CI/CD](https://mergewayhq.github.io/cli/guides/github-actions-ci-cd/): Guidance on integrating Mergeway commands into continuous integration workflows.
+- [Pre‑commit integration](https://mergewayhq.github.io/cli/guides/pre-commit-integration/): How to enforce formatting and validation in a pre‑commit hook.
