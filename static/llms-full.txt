@@ -1,161 +1,35 @@
+# Mergeway CLI - LLM Reference
 
-# Mergeway CLI – Full Documentation
+This file is a high-signal reference for language models working with Mergeway CLI and authoring Mergeway workspaces.
 
-## Overview (docs/src/README.md)
+Mergeway CLI manages structured metadata in Git-backed workspaces. It defines entity schemas in YAML or JSON Schema, loads YAML/JSON records from disk, validates structure and references, formats files deterministically, diffs logical data changes, exports snapshots, and can generate ERDs.
 
-Mergeway is a lightweight CLI that keeps metadata honest by treating schemas as code. Instead of juggling spreadsheets or custom scripts, you describe entities in YAML/JSON, run a quick validation, and catch broken references before they reach production.
+## Fast Mental Model
 
-### What the CLI Does
+- The workspace root contains `mergeway.yaml`.
+- Config files may `include` other YAML files; included files are merged into one logical config.
+- `entities` defines the schema. Each entity is one object type.
+- Records may live inline under `data:` or in external YAML/JSON files referenced by `include`.
+- Reference fields are declared by setting a field `type` to another entity name, for example `author: User`.
+- Validation runs in three phases: `format`, `schema`, `references`.
+- Most CLI commands operate on files inside the workspace root. Some read paths outside the root, but write commands do not.
 
-- Stores entity definitions and relationships in version-controlled files.
-- Validates schemas and records so required fields and references stay consistent.
-- Generates simple reports you can attach to pull requests or issues.
+## Canonical Workspace Shape
 
-### Key Features
-
-- **Workspace scaffolding**: `mergeway-cli init` writes a starter `mergeway.yaml` into your working directory so you can begin defining entities immediately.
-- **Dual schema sources**: Author entity fields inline in YAML or reference existing JSON Schema documents (`json_schema`) so teams can reuse specs.
-- **Object lifecycle commands**: `list`, `get`, `create`, `update`, and `delete` operate on local YAML/JSON files, respecting identifier fields defined in schemas and inline data.
-- **Deterministic formatting**: `mergeway-cli fmt` emits canonical structure and rewrites files in place (use `--stdout` to preview changes) to keep diffs clean.
-- **Layered validation**: Format, schema, and reference phases catch structural, typing, and cross‑entity errors before they land in main.
-- **Schema introspection**: `mergeway-cli entity show` and `mergeway-cli config export` surface normalized schemas or derived JSON Schema for documentation and automation.
-
-### Why Teams Use Mergeway
-
-- **Fast feedback**: one command surfaces missing fields, enum mismatches, or invalid references.
-- **Git‑native**: changes live in branches and pull requests, making reviews trivial.
-- **Lightweight**: no server component—just a binary that runs locally or in CI.
-
-### Where to Go Next
-
-1. Install Mergeway (see installation guide) or build from source.
-2. Follow the workspace set‑up guide.
-3. Review the basic concepts and schema format when you define entities.
-4. Browse through the CLI reference for command syntax.
-
-Updates land in the changelog. File GitHub issues for questions, bugs, or requests.
-
----
-
-## Go CLI Build & Test Expectations (docs/arch/go-cli-build-test.md)
-
-This architecture document outlines expectations and conventions for building and testing the Mergeway CLI, which is implemented in Go. It covers the recommended toolchain, project layout, build workflow, linting, testing, continuous integration, release artifacts, dependency management, logging, and developer experience.
-
-### Toolchain
-
-- Target Go version: 1.25.x (keep CI images and local environments aligned).
-- Single Go module rooted at the repository (`go.mod` in the repo root) with module‑aware builds (`GO111MODULE=on`).
-- Use semantic import versioning conventions; avoid `replace` directives unless absolutely necessary.
-
-### Source Layout
-
-```
-repo-root/
-  internal/
-    config/
-    data/
-    validation/
-    cli/
-  pkg/                # optional for exported APIs if external consumption becomes necessary
-  go.mod
-  go.sum
-  main.go
+```text
+workspace/
+  mergeway.yaml
+  entities/
+    User.yaml
+    Post.yaml
+  data/
+    users/
+      user-alice.yaml
+    posts/
+      launch.yaml
 ```
 
-- Keep the top-level `main.go` minimal—parse flags and hand off to internal packages.
-- Group core logic under `internal/` by domain (configuration loading, storage, validation pipeline, command orchestration).
-- Add `pkg/` only when symbols need to be consumed by other modules; otherwise prefer `internal/` for encapsulation.
-
-### Build Workflow
-
-Use first‑party Go commands (no Makefile wrappers expected):
-
-- Format: `go fmt ./...`
-- Static analysis: `golangci-lint run` (configured to enable `staticcheck` and other desired linters).
-- Build: `go build .`
-- Dependency hygiene: `go mod tidy` before committing changes that affect dependencies.
-
-Document these commands in the README so contributors follow the canonical workflow.
-
-### Linting & Analysis
-
-- Maintain a `.golangci.yml` configuration enabling at least `staticcheck`, `govet`, `gosimple`, `unused`, and formatting checks.
-- Run `golangci-lint run` locally and in CI; fail the pipeline on any lint errors.
-- Keep linter runtime manageable by caching build artifacts (configure CI cache accordingly).
-
-### Testing Strategy
-
-- Unit tests: `go test ./...` (table‑driven tests for config parsing, storage helpers, validation logic).
-- Race detection: `go test -race ./...` in CI at least once per pipeline.
-- Integration tests: leverage `t.TempDir()` to create temporary repository structures and execute command flows via package APIs or `exec.Command` wrappers.
-- Fixtures: store canonical configs/data under `testdata/`, mirroring representative scenarios from `docs/examples/` (single objects, repeated fields, cross‑type references).
-- Coverage target: aim for ≥ 80 % across `internal/config`, `internal/data`, `internal/validation`, and CLI orchestration packages.
-
-### Continuous Integration Expectations
-
-Typical CI pipeline stages:
-
-1. `go fmt ./...` (fail if diffs are detected via `git diff --exit-code`).
-2. `golangci-lint run` (with `staticcheck` enabled).
-3. `go test -race ./...`.
-4. `go test -cover ./...` and publish coverage results.
-
-Use `actions/setup-go` (or equivalent) pinned to Go 1.25.x and enable module download caching.
-
-### Release Artifacts
-
-- Build static binaries for Linux (`amd64`, optionally `arm64`) and macOS (`amd64`, `arm64`) using environment matrices (`GOOS`, `GOARCH`).
-- Output binaries as `dist/mergeway-cli_<os>_<arch>`; strip debug symbols for release builds.
-- Windows support can be added later when requirements expand.
-
-### Dependency Management
-
-- Rely solely on Go modules (`go mod`); avoid vendoring until policy changes.
-- Keep dependencies minimal; prefer the standard library. Introduce third‑party packages only when necessary and include rationale in PR descriptions.
-- Run `go mod tidy` and `go mod vendor` (if policy changes) in CI to guard against drift.
-
-### Logging & Observability
-
-- Use the standard library’s `log/slog` for structured logging.
-- Provide a `--verbose` or `--log-level` flag that toggles `slog` handler levels; default to informational output with timestamps.
-- Tests should assert on critical log messages when behavior depends on logging side‑effects.
-
-### Developer Experience
-
-- Recommend installing `golangci-lint` locally (document installation instructions in the README).
-- Encourage the use of `direnv` or `.tool-versions` (asdf) to pin Go 1.25.x, but keep enforcement optional unless the team standardizes on a tool.
-- Provide VS Code/GoLand settings snippets if beneficial (e.g., enabling `staticcheck`).
-
-## Getting Started (docs/src/getting-started/README.md)
-
-This guide introduces the basic concepts and structure of a Mergeway workspace. It is intended for new users who want to understand how to set up and use Mergeway effectively.
-
-A Mergeway workspace is just a folder with a few predictable parts. Knowing the vocabulary makes the CLI output easier to read.
-
-### Building Blocks
-
-- **Workspace**: folder tracked in Git that contains `mergeway.yaml`, schemas, and optional objects. All commands run from here.
-- **Schema**: YAML/JSON that defines fields and references. Each file describes one entity.
-- **Object**: optional data instances stored under `data/`.
-- **Reference**: a link from one schema or field to another (`type: ref`). Mergeway validates referential integrity.
-
-### Validation Flow
-
-1. Mergeway loads `mergeway.yaml` to locate schemas and records.
-2. Schemas are parsed and checked for required fields, types, and references.
-3. Records (if present) are validated against their schemas.
-
-For field syntax and configuration options, see the [Schema format](#schema-format) section.
-
----
-
-## Schema Format (docs/src/getting-started/schema-spec.md)
-
-Schemas can live entirely inside `mergeway.yaml` or be split across additional include files (for example under an `entities/` folder) for readability. Likewise, object data may be defined inline or stored under `data/`. Pick the mix that matches your editing workflow—comments below highlight conventions for modular repositories without requiring them.
-
-### Configuration Entry (`mergeway.yaml`)
-
-The workspace entry file declares the schema version and the files to load:
+Minimal entry file:
 
 ```yaml
 mergeway:
@@ -165,12 +39,25 @@ include:
   - entities/*.yaml
 ```
 
-- `mergeway.version` tracks breaking changes in the configuration format (keep it at `1`).
-- `include` is a list of glob patterns. Each matching file is merged into the configuration. Patterns need to resolve to at least one file; otherwise Mergeway reports an error.
+Rules:
 
-### Schema Files (optional includes)
+- `mergeway.version` is currently `1`.
+- Top-level config `include` entries are glob patterns relative to the file that declares them.
+- Top-level config include patterns must match at least one file.
 
-A schema file declares one or more entity definitions. Store them in whichever folder makes sense for your workflow (many teams use `entities/`); the location has no semantic impact. The example below defines a `Post` entity:
+## Entity Definition
+
+An entity definition must provide:
+
+- `identifier`
+- either `fields` or `json_schema`
+- optionally `include`
+- optionally `data`
+- optionally `description`
+
+Type names must start with an uppercase letter. Field and property names may contain letters, digits, `_`, and `-`.
+
+Example native entity:
 
 ```yaml
 mergeway:
@@ -178,1343 +65,442 @@ mergeway:
 
 entities:
   Post:
-    description: Blog posts surfaced on the marketing site
+    description: Blog posts shown on the marketing site
     identifier: id
     include:
       - data/posts/*.yaml
     fields:
-      id: string
+      id:
+        type: string
+        required: true
       title:
         type: string
         required: true
-        description: Human readable title
-      body: string
+      status:
+        type: enum
+        enum: [DRAFT, PUBLISHED]
+        required: true
       author:
         type: User
         required: true
-    data:
-      - id: post-inline
-        title: Inline Example
-        author: user-alice
-        body: Inline data lives in the schema file.
+      tags:
+        type: Tag
+        repeated: true
+      metadata:
+        type: object
+        properties:
+          created_at:
+            type: string
+          editor:
+            type: User
 ```
 
-For advanced scenarios you can expand `identifier` into a mapping:
+Field shorthand is supported:
 
 ```yaml
-mergeway:
-  version: 1
-
-entities:
-  Post:
-    description: Blog posts surfaced on the marketing site
-    identifier:
-      field: id
-      generated: true
-    include:
-      - data/posts/*.yaml
-    fields:
-      # ...
+fields:
+  id: string
+  title: string
 ```
 
-`generated: true` is an advisory hint for downstream automation (code generators, UI scaffolding). The CLI still expects inline identifiers or an explicit `--id` flag when creating objects.
+Shorthand only sets `type`. It does not imply `required: true`.
 
-When several objects live in one file, provide a JSONPath selector to extract them:
+## Identifier Semantics
+
+`identifier` supports three forms:
+
+1. String field name:
 
 ```yaml
-mergeway:
-  version: 1
-
-entities:
-  User:
-    description: Directory of account holders sourced from JSON
-    identifier: id
-    include:
-      - path: data/users.json
-        selector: "$.users[*]"
-    fields:
-      # ...
+identifier: id
 ```
 
-Strings remain a shorthand for `path` with no `selector`; Mergeway then reads the entire file as a single object (or uses the `items:` array if present).
-
-#### Required Sections
-
-| Key           | Description |
-| ------------- | ----------- |
-| `identifier`  | Name of the identifier field inside each record (needs to be unique per entity). Provide either a string (the field name) or a mapping with `field`, optional `generated`, and `pattern`. The identifier value itself can be a string, integer, or number. The `generated` flag is advisory for tooling—the CLI still expects identifiers to be supplied (inline or via `--id`). |
-| `include`     | List of data sources. Each entry can be a glob string (shorthand) or a mapping with `path` and optional `selector` property. Omit only when you rely exclusively on inline `data`. Without a selector, Mergeway treats the whole file as a single object. |
-| `fields`      | Map of field definitions. Use either the shorthand `field: type` (defaults to optional) or the expanded mapping for advanced options. Provide either `fields` or `json_schema` for each entity. |
-| `json_schema` | Path to a JSON Schema (draft 2020‑12) file relative to the schema that declares the entity. When present, Mergeway derives field definitions from the JSON Schema and you can omit the `fields` block. |
-| `data`        | Optional array of inline records. Each entry needs to contain the identifier field and follows the same schema rules as external data files. |
-
-Add `description` anywhere you need extra context. Entities accept it alongside `identifier`, and each field definition supports its own `description` value.
-
-#### Inline Data
-
-Inline data is helpful for tiny lookup tables or bootstrapping a demo without creating additional files. Define records directly inside the entity specification:
+2. Expanded mapping:
 
 ```yaml
-mergeway:
-  version: 1
-
-entities:
-  Person:
-    description: Lightweight profile objects
-    identifier: id
-    include:
-      - data/people/*.yaml
-    fields:
-      id: string
-      name:
-        type: string
-        required: true
-        description: Preferred display name
-      age: integer
-    data:
-      - id: person-1
-        name: Alice
-        age: 30
-      - id: person-2
-        name: Bob
-        age: 42
-```
-
-Inline records are loaded alongside file-based data. If a record with the same identifier exists both inline and on disk, the file wins. Inline records are read‑only at runtime—`mergeway-cli data update` and `mergeway-cli data delete` target files only.
-
-#### Field Shorthand
-
-When a field only needs a type, map entries can use the compact `field: type` syntax. These fields default to `required: false` and behave identically to the expanded form otherwise. Switch to the full mapping whenever you need attributes like `required`, `repeated`, or `format`.
-
-#### Field Attributes
-
-| Attribute     | Example                           | Notes |
-| ------------- | --------------------------------- | ----- |
-| `type`        | `string`, `number`, `boolean`, `list[string]`, `User` | Lists are written as `list[type]`. A plain string (e.g., `User`) references another type. |
-| `required`    | `true`/`false`                    | Required fields appear in every record. |
-| `repeated`    | `true`/`false`                    | Indicates an array field. |
-| `description` | `Service owner team`              | Optional but recommended. |
-| `enum`        | `[draft, active, retired]`        | Allowed values. |
-| `default`     | Any scalar                        | Value injected when the field is missing. |
-
-#### JSON Schema Entities
-
-For larger teams it can be convenient to author schemas once and consume them in multiple places. Entities support a `json_schema` property that points to an on‑disk JSON Schema document (draft 2020‑12). The path is resolved relative to the file that declares the entity and needs to live inside the repository—external `$ref` documents and network lookups are rejected.
-
-When `json_schema` is present, omit the `fields` map. Mergeway parses the JSON Schema and converts it to its native field definitions:
-
-- `type: object` becomes nested field groups, preserving `required` entries for each level.
-- `type: array` sets `repeated: true` and uses the `items` schema to determine the element type.
-- `enum`, `const`, or `oneOf` blocks translate into Mergeway enums (string values only).
-- `$ref` segments are resolved within the same JSON Schema file (e.g., `#/$defs/...`).
-- Custom references to other entities use the same `x-reference-type` property emitted by `mergeway-cli config export`.
-
-See the `examples/json-schema` folder for a runnable workspace that demonstrates this flow end‑to‑end.
-
-Keep schema files small and focused—one entity per file is the easiest to maintain.
-
-### Data Files
-
-Each data file provides the fields required by its entity definition. Declaring a `type` at the top is optional—the CLI infers it from the entity that referenced the file (through `include`/`selector`) and only errors when a conflicting `type` value is present. Keeping it in the file can still be helpful for humans who open an arbitrary YAML document.
-
-```yaml
-type: Post # optional; falls back to the entity that included this file
-id: post-001
-title: Launch Day
-author: user-alice
-body: |
-  We are excited to announce the product launch.
-```
-
-You can store one object per file (as above) or provide an `items:` array to keep several objects together. Mergeway removes any top-level `type` key before validating the record, so referencing the same file from multiple entities requires the selector approach described earlier.
-
-JSONPath selectors let you extract objects from nested structures—handy when you need to read a subset of a larger document. For example, `selector: "$.users[*]"` walks through the `users` array in a JSON file and emits one record per element. Mergeway validates that the selector returns objects; any other shape triggers a format error.
-
-Identifier fields accept numeric payloads as well. For example, the following record is valid when the schema marks `id` as an `integer`:
-
-```yaml
-id: 42
-name: Numeric Identifier
-```
-
-### Good Practices
-
-- Prefer references (`type: User`) over duplicating identifiers.
-- Group files in predictable folders (`data/posts/`, `data/users/`, etc.).
-- Run `mergeway-cli validate` after every change to catch problems immediately.
-
-Need more context? Return to the basic concepts page for the bigger picture.
-
----
-
-## CLI Reference (docs/src/cli-reference/README.md)
-
-Every command shares a set of global flags (use `--long-name`; single-dash long flags like `-root` are not supported). Global flags can appear before or after the command name.
-
-| Flag          | Description                                                                 |
-| ------------- | --------------------------------------------------------------------------- |
-| `--root`      | Path to the workspace (defaults to `.`).                                     |
-| `--config`    | Explicit path to `mergeway.yaml` (defaults to `<root>/mergeway.yaml`).       |
-| `--format`    | Output format (`yaml` or `json`, default `yaml`).                            |
-| `--fail-fast` | Stop after the first validation error (where supported).                     |
-| `--yes`       | Auto-confirm prompts (useful for `delete`).                                  |
-| `--verbose`   | Emit additional logging.                                                     |
-
-Commands are grouped into categories. See the entries below for details.
-
-### Repository Setup
-
-- **init** – scaffold the directory layout and default configuration for a Mergeway workspace.
-- **validate** – check schemas, records, and references and report formatted errors.
-- **version** – display the CLI build metadata (semantic version, commit, build date).
-
-### Schema Utilities
-
-- **entity list** – show every entity discovered from your configuration.
-- **entity show** – print the normalized schema for a given entity.
-- **fmt** – format one or more data/config files using Mergeway’s canonical ordering.
-- **config lint** – validate configuration files (including includes) without touching data.
-- **config export** – emit a JSON Schema for one of your types.
-- **gen-erd** – generate an entity relationship diagram of your data model.
-
-For more information on the schema, consult the [Schema format](#schema-format) section.
-
-### Object Operations
-
-- **list** – list object identifiers for a given type, optionally filtered by a field.
-- **get** – print the fields of one object.
-- **create** – create a new object file that conforms to an entity definition.
-- **update** – modify an existing object by replacing it or merging in fields.
-- **delete** – remove an object file from the workspace.
-- **export** – export repository objects into a single JSON or YAML document.
-
-Need a refresher on terminology? See the basic concepts page.
-
----
-
-## Command Reference
-
-### init
-
-Scaffold the directory layout and default configuration for a Mergeway workspace.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] init
-```
-
-`mergeway-cli init` targets the directory referenced by `--root` (default `.`) and does not accept positional arguments. Use `mkdir`/`cd` before running the command if you want to initialize a new folder.
-
-After initialization, continue with the getting started guide.
-
-#### Example
-
-```bash
-mkdir blog-metadata
-cd blog-metadata
-mergeway-cli init
-```
-
-Output resembles:
-
-```
-Initialized repository at .
-```
-
-`mergeway-cli init` ensures a starter `mergeway.yaml` exists in the target directory. Add folders such as `entities/` or `data/` yourself once the project grows; keeping everything in a single file is perfectly valid. Re‑run the command safely—it won't overwrite existing files.
-
-The default configuration contains:
-
-```yaml
-# mergeway-cli configuration
-mergeway:
-  version: 1
-
-entities: {}
-```
-
-#### Related Commands
-
-- [`mergeway-cli validate`](#validate) — run after adding schema and data files.
-- [`mergeway-cli config lint`](#config-lint) — verify configuration changes once you edit `mergeway.yaml`.
-
-### validate
-
-Check schemas, records, and references, emitting formatted errors when something is wrong.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] validate [--phase format|schema|references]... [--fail-fast]
-```
-
-| Flag          | Description                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------- |
-| `--phase`     | Optional. Repeat to run a subset of phases. By default all phases run (`format`, `schema`, then `references`). |
-| `--fail-fast` | Stop after the first error. Defaults to the global `--fail-fast` flag.                                         |
-
-Requesting the `references` phase automatically includes the `schema` phase so reference checks have the information they need.
-
-#### Examples
-
-Run the command from the workspace root (or add `--root` to point elsewhere).
-
-Validate the current workspace:
-
-```bash
-mergeway-cli validate
-```
-
-Add `--format json` when you need machine‑readable output.
-
-Output:
-
-```
-validation succeeded
-```
-
-Run validation after introducing a breaking schema change:
-
-```bash
-mergeway-cli validate
-```
-
-Output when the `Post` schema requires an `author` but the record is missing it:
-
-```yaml
-- phase: schema
-  type: Post
-  id: post-001
-  file: data/posts/launch.yaml
-  message: missing required field "author"
-```
-
-The command writes errors to standard output and still exits with status `0`, so automation can check whether any errors were returned.
-
-#### Related Commands
-
-- [`mergeway-cli config lint`](#config-lint) — validate configuration without loading data.
-- [`mergeway-cli list`](#list) — locate the objects mentioned in validation errors.
-
-### version
-
-Display the CLI build metadata (semantic version, commit, build date).
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] version
-```
-
-No additional flags. This command does not touch workspace files; global flags like `--root` are ignored.
-
-#### Example
-
-```bash
-mergeway-cli --format json version
-```
-
-Output:
-
-```json
-{
-  "version": "0.1.0",
-  "commit": "a713be5",
-  "buildDate": "2025-10-22T18:25:03Z"
-}
-```
-
-Values change with each build; use the command to confirm which binary produced a validation report or data change.
-
-#### Related Commands
-
-- [`mergeway-cli validate`](#validate) — include the CLI version in validation artifacts for traceability.
-
-### entity list
-
-Show every entity Mergeway discovered from your configuration.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] entity list
-```
-
-No command‑specific flags. Add the global `--root` flag if you need to inspect another workspace.
-
-#### Example
-
-List entities for the `examples/` workspace bundled with the repository:
-
-```bash
-mergeway-cli --root examples/full entity list
-```
-
-Output:
-
-```
-Comment
-Post
-Tag
-User
-```
-
-Entities are listed alphabetically.
-
-#### Related Commands
-
-- [`mergeway-cli entity show`](#entity-show) — inspect an individual schema definition.
-- [`mergeway-cli config lint`](#config-lint) — verify the configuration if an entity is missing.
-
-### entity show
-
-Print the normalized schema for a given entity.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] entity show <entity>
-```
-
-No additional flags. Use `--format json` if you prefer JSON output, and add the global `--root` flag when working outside the workspace root.
-
-#### Example
-
-Show the `Post` entity in YAML form:
-
-```bash
-mergeway-cli --root examples/full --format yaml entity show Post
-```
-
-Output (abridged):
-
-```yaml
-name: Post
-source: .../examples/full/entities/Post.yaml
 identifier:
   field: id
-filepatterns:
-  - data/posts/*.yaml
-fields:
-  title:
-    type: string
-    required: true
-  author:
-    type: User
-    required: true
-  body:
-    type: string
+  generated: true
+  pattern: "^post-[0-9]+$"
 ```
 
-#### Related Commands
-
-- [`mergeway-cli entity list`](#entity-list) — find available entities.
-- [`mergeway-cli config export`](#config-export) — generate a JSON Schema from an entity definition.
-
-### fmt
-
-Format one or more data/config files using Mergeway’s canonical ordering.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] fmt [--in-place|--lint] [<file>...]
-```
-
-| Flag         | Description                                                                            |
-| ------------ | -------------------------------------------------------------------------------------- |
-| `--in-place` | Rewrite each file on disk with the formatted content (default when no other flag set). |
-| `--stdout`   | Print formatted content to stdout instead of touching files.                           |
-| `--lint`     | Do not rewrite files; exit `1` if any file would change and print the offending paths. |
-
-You can't combine `--stdout` with `--lint` or `--in-place`. When neither flag is supplied, `mergeway-cli fmt` rewrites files in place and prints a line for each path it touched.
-
-If you omit file arguments entirely, the command formats every file referenced by the `include` directives in `mergeway.yaml`. Supplying explicit files narrows the scope, but each file needs to belong to the configured data set—`mergeway-cli fmt` fails fast when a path is not declared in the config.
-
-When formatting entity data, field order follows the definition in your schema so that e.g. `id`, `title`, and other properties always appear in the same sequence you specified.
-
-#### Examples
-
-Preview a single file without modifying disk:
-
-```bash
-mergeway-cli fmt --stdout data/posts/posts.yaml > /tmp/posts.yaml
-```
-
-Rewrite files in place (default behavior, useful before committing):
-
-```bash
-mergeway-cli fmt data/posts/posts.yaml data/users.yaml
-```
-
-Use lint mode in CI to ensure working tree files are already formatted:
-
-```bash
-mergeway-cli fmt --lint data/posts/posts.yaml
-```
-
-If any file requires formatting, the command prints each relative path and exits with status `1`. Clean runs exit with status `0` and no output. Passing a file that is not listed in the configuration returns an error, which helps CI avoid accidentally mutating out‑of‑scope files.
-
-#### Related Commands
-
-- [`mergeway-cli validate`](#validate) — validate schemas and data after formatting.
-- [`mergeway-cli list`](#list) — inspect records that were just formatted.
-
-### config lint
-
-Validate configuration files (including includes) without touching data.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] config lint
-```
-
-No additional flags.
-
-#### Example
-
-Run the command from the workspace root (or pass `--root`):
-
-```bash
-mergeway-cli config lint
-```
-
-Output:
-
-```
-configuration valid
-```
-
-If the command encounters a problem (for example, an include pattern that matches no files), it prints the error and exits with status `1`.
-
-Run this command whenever you edit `mergeway.yaml` or add new entity definitions to catch syntax mistakes early.
-
-#### Related Commands
-
-- [`mergeway-cli config export`](#config-export) — derive a JSON Schema for a type.
-- [`mergeway-cli validate`](#validate) — validate both schemas and data.
-
-### config export
-
-Emit a JSON Schema for one of your types.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] config export --type <type>
-```
-
-| Flag     | Description                          |
-| -------- | ------------------------------------ |
-| `--type` | Required. Type identifier to export. |
-
-#### Example
-
-Run the command from the workspace root (or pass `--root`). Export the `Post` type as JSON Schema:
-
-```bash
-mergeway-cli --root examples --format json config export --type Post
-```
-
-Output (abridged):
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "properties": {
-    "author": {
-      "type": "string",
-      "x-reference-type": "User"
-    },
-    "title": {
-      "type": "string"
-    }
-  },
-  "required": ["id", "title", "author"],
-  "type": "object"
-}
-```
-
-Fields that reference other types include the `x-reference-type` hint. Validate your workspace (`mergeway-cli config lint` or `mergeway-cli validate`) after editing type files to ensure the exported schema stays in sync.
-
-#### Related Commands
-
-- [`mergeway-cli entity show`](#entity-show) — view the full Mergeway representation of an entity.
-- [`mergeway-cli validate`](#validate) — ensure data conforms to the schema you just exported.
-
-### gen-erd
-
-Generate an entity relationship diagram of your data model.
-
-#### Usage
-
-```bash
-mergeway-cli gen-erd --path <output-file>
-```
-
-| Argument | Description                                                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `--path` | **Required.** The path where the generated image will be saved. The file extension determines the output format (e.g., `.png`, `.svg`). |
-
-This command inspects your configuration and generates a visual representation of your entities and their relationships. It relies on Graphviz (specifically the `dot` command) to produce the output image.
-
-#### Examples
-
-Generate a PNG image of your schema:
-
-```bash
-mergeway-cli gen-erd --path schema.png
-```
-
-Generate an SVG:
-
-```bash
-mergeway-cli gen-erd --path schema.svg
-```
-
-Example output, based on the full example repository, is included in the docs.
-
-#### Requirements
-
-The `dot` executable from Graphviz needs to be installed and available in your system’s PATH.
-
-### list
-
-List object identifiers for a given type, optionally filtered by a field.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] list --type <type> [--filter key=value]
-```
-
-| Flag       | Description                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `--type`   | Required. Type identifier to query.                                                                                            |
-| `--filter` | Optional `key=value` string used to filter objects before listing their IDs. The comparison is a simple string equality check. |
-
-#### Example
-
-Run the command from the workspace root. If you need to operate on another directory, add the global `--root` flag.
-
-List all posts in the quickstart workspace:
-
-```bash
-mergeway-cli list --type Post
-```
-
-Output:
-
-```
-post-001
-```
-
-Filter by author:
-
-```bash
-mergeway-cli list --type Post --filter author=user-alice
-```
-
-Output:
-
-```
-post-001
-```
-
-#### Related Commands
-
-- [`mergeway-cli get`](#get) — inspect a specific object.
-- [`mergeway-cli create`](#create) — add a new object when an ID is missing.
-
-### get
-
-Print the fields of one object.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] get --type <type> <id>
-```
-
-| Flag     | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--type` | Required. Type identifier that owns the object.                  |
-| `<id>`   | Required positional argument representing the object identifier. |
-
-Use `--format json` if you prefer JSON output.
-
-#### Example
-
-Run the command from the workspace root. Use `--root` if you need to target another workspace.
-
-Fetch the `post-001` record as YAML:
-
-```bash
-mergeway-cli --format yaml get --type Post post-001
-```
-
-Output:
+3. Reserved `$path` value:
 
 ```yaml
-author: user-alice
-body: |
-  We are excited to announce the product launch.
-id: post-001
-title: Launch Day
+identifier: $path
 ```
 
-#### Related Commands
-
-- [`mergeway-cli list`](#list) — discover identifiers before calling `get`.
-- [`mergeway-cli update`](#update) — change object fields.
-
-### create
-
-Create a new object file that conforms to an entity definition.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] create --type <type> [--file path] [--id value]
-```
-
-| Flag     | Description                                                                 |
-| -------- | --------------------------------------------------------------------------- |
-| `--type` | Required. Type identifier to create.                                        |
-| `--file` | Optional path to a YAML/JSON payload. If omitted, data is read from STDIN.  |
-| `--id`   | Optional identifier override. Useful when the payload omits the `id` field. |
-
-#### Example
-
-Run the command from the workspace root (or pass `--root` if you are elsewhere). Create a user by piping a YAML document and letting Mergeway write the file under `data/users/`:
-
-```bash
-cat <<'PAYLOAD' > user.yaml
-name: Bob Example
-PAYLOAD
-
-mergeway-cli create --type User --file user.yaml --id user-bob
-```
-
-Output:
-
-```
-User user-bob created
-```
-
-The command writes `data/users/user-bob.yaml` with the provided fields. Remove the temporary `user.yaml` file afterward and run `mergeway-cli validate` to confirm the new object passes checks.
-
-#### Related Commands
-
-- [`mergeway-cli update`](#update) — modify an existing object.
-- [`mergeway-cli delete`](#delete) — remove an object.
-
-### update
-
-Modify an existing object. You can replace the object entirely or merge in a subset of fields.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] update --type <type> --id <id> [--file path] [--merge]
-```
-
-| Flag      | Description                                                                                                 |
-| --------- | ----------------------------------------------------------------------------------------------------------- |
-| `--file`  | Optional path to a YAML/JSON payload (defaults to STDIN).                                                   |
-| `--merge` | Merge fields into the existing object instead of replacing it.                                              |
-| `--type`  | Required. Type identifier.                                                                                  |
-| `--id`    | Required. Object identifier to update.                                                                      |
-
-#### Example
-
-Run the command from the workspace root (or add `--root` to target another workspace). Update a post title by merging in a tiny payload:
-
-```bash
-cat <<'PAYLOAD' > post-update.yaml
-title: Launch Day (Updated)
-PAYLOAD
-
-mergeway-cli update --type Post --id post-001 --file post-update.yaml --merge
-```
-
-Output:
-
-```
-Post post-001 updated
-```
-
-Run `mergeway-cli validate` after significant updates to confirm references still resolve. Without `--merge`, the payload replaces the entire object. Delete the temporary payload file once you are done with the update.
-
-#### Related Commands
-
-- [`mergeway-cli create`](#create) — add new objects.
-- [`mergeway-cli delete`](#delete) — remove objects that are no longer needed.
-
-### delete
-
-Remove an object file from the workspace.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] delete --type <type> <id>
-```
-
-| Flag     | Description                                                    |
-| -------- | -------------------------------------------------------------- |
-| `--type` | Required. Type identifier.                                     |
-| `<id>`   | Required positional argument identifying the object to delete. |
-
-The command prompts for confirmation unless you pass the global `--yes` flag. Global flags (like `--yes` or `--root`) can appear before or after the command name.
-
-#### Example
-
-Run the command from the workspace root (or add `--root` to target another workspace). Delete a user without prompting:
-
-```bash
-mergeway-cli --yes delete --type User user-bob
-```
-
-Output:
-
-```
-User user-bob deleted
-```
-
-#### Related Commands
-
-- [`mergeway-cli list`](#list) — confirm an object’s identifier before deleting.
-- [`mergeway-cli create`](#create) — recreate an object if you delete the wrong one.
-
-### export
-
-Export repository objects into a single JSON or YAML document.
-
-#### Usage
-
-```bash
-mergeway-cli [global flags] export [--output <path>] [entity...]
-```
-
-| Flag       | Description                                                                                              |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| `--output` | Optional path to write the exported document. Defaults to STDOUT.                                        |
-| `entity`   | Optional list of type names to include. Omitting the list exports every entity defined in the workspace. |
-
-The export format matches the global `--format` flag (`yaml` by default).
-
-#### Examples
-
-Export every entity in the repository as YAML to the terminal:
-
-```bash
-mergeway-cli export
-```
-
-Export only the `User` and `Post` entities as JSON into a file:
-
-```bash
-mergeway-cli --format json export --output snapshot.json User Post
-```
-
-Each top-level key in the output map is the entity name; the value is an array of records sorted by ID.
-
-#### Related Commands
-
-- [`mergeway-cli list`](#list) — inspect available identifiers before exporting.
-- [`mergeway-cli get`](#get) — fetch a single object instead of the full dataset.
-
----
-
-## Guides
-
-### Example Walkthrough
-
-Use the example repository to get started with Mergeway CLI. The mergeway-example-repo demonstrates how the CLI can enforce schemas, format YAML/JSON files and generate relationship diagrams using a minimal blog dataset. This guide shows how to set up Mergeway, explore the example repository and add automation so contributors always follow the rules.
-
-#### 1. Cloning the example repository and installing the CLI
-
-Start by cloning the example repository and moving into it:
-
-```bash
-git clone git@github.com:mergewayhq/mergeway-example-repo.git
-cd mergeway-example-repo
-```
-
-The repository’s **Getting started** section explains two ways to access the CLI:
-
-- **Use your own install.** Follow the official installation instructions to install `mergeway-cli`. Once installed you can run commands directly in the repo.
-- **Use the provided dev shell.** If you use Nix and optionally direnv, you can run `nix develop` from the root. This builds `mergeway-cli` from source and sets up pre‑commit hooks and validation for you.
-
-With the CLI available, try printing the version and usage information:
-
-```bash
-mergeway-cli --help    # show usage information
-mergeway-cli version   # print the CLI version
-```
-
-#### 2. Understanding the repository structure
-
-The example repository models a simple blog with four entities: `User`, `Tag`, `Post` and `Comment`. Each entity stores its schema in `entities/` and the corresponding records in `data/`. The top‑level `mergeway.yaml` file ties everything together and tells Mergeway where to find schemas and data.
-
-**Directory overview**:
-
-| Folder          | Purpose                                                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `entities/`     | Contains YAML schemas for each entity (`User.yaml`, `Tag.yaml`, `Post.yaml`, `Comment.yaml`).                         |
-| `data/`         | Holds YAML or JSON files with records. The subfolders (`users/`, `tags/`, `posts/`, `comments/`) mirror the entities. |
-| `mergeway.yaml` | Top‑level configuration referencing entity schemas and data globs.                                                    |
-
-To see the contents of the dataset, you can run:
-
-```bash
-mergeway-cli entity list          # list all entity types
-mergeway-cli entity show User     # inspect the User schema
-mergeway-cli list --type Post     # list all post records
-mergeway-cli get --type User 1    # fetch a single user by id
-mergeway-cli validate             # validate schemas, data and references
-```
-
-These commands read `mergeway.yaml`, load each entity definition under `entities/`, and then validate all records under `data/`. Validation errors are printed in a structured format with the phase (format, schema or references) and the offending file and message.
-
-#### 3. Exploring and extending a workspace
-
-You are not limited to the blog dataset. The Mergeway workspace guide demonstrates how to scaffold a brand‑new workspace, move inline records into separate files and add JSON sources:
-
-1. **Create a workspace.** Make a directory and run `mergeway-cli init` to create a new `mergeway.yaml`. The file starts with an inline entity definition; you can customise it to match your data model.
-2. **Use CLI commands.** List entities, show schemas, list records and validate the workspace.
-3. **Externalise data.** As the table grows, move records into files under `data/` and update the `include` globs in `mergeway.yaml`. Re‑run `mergeway-cli list` and `mergeway-cli validate` to see the effect.
-4. **Split schemas and add JSON.** Create an `entities/` directory and define additional entities (e.g. `Product`) that pull from JSON via JSONPath selectors. Add the JSON file under `data/` and include external schemas using the `include` key in `mergeway.yaml`.
-5. **Fix reference errors.** When validation reports missing references (e.g. a `Product` record refers to a non‑existent category), update the relevant data file and re‑validate to ensure consistency.
-6. **Export a snapshot.** Use `mergeway-cli export --format json --output <file>` to collect the full dataset into a single JSON snapshot.
-
-By following these steps you can evolve the example repository or build your own dataset from scratch while preserving referential integrity.
-
-#### 4. Automating formatting and reviews with GitHub Actions
-
-To keep data formatted and ensure the right people review changes, configure a GitHub Actions workflow and CODEOWNERS. Create a workflow file called `.github/workflows/mergeway-fmt.yml`:
+Notes:
+
+- `generated: true` is advisory metadata for downstream tooling. The CLI still requires an explicit identifier when creating objects.
+- `pattern` on `identifier` is enforced during schema validation.
+- Identifiers can be string, integer, or number values when field-based.
+- `$path` means the workspace-relative file path is the object ID, for example `data/notes/alpha.yaml`.
+- `$path` only works when each file yields exactly one object.
+- `$path` cannot be combined with inline `data`.
+- `$path` rejects `items:` arrays and selectors that return multiple objects from one file.
+
+## Native Field Semantics
+
+Supported native field types:
+
+- Primitive scalars: `string`, `integer`, `number`, `boolean`
+- `enum`
+- `object`
+- another entity name, which means a reference
+- a native reference union such as `User | Team`
+
+Important corrections for LLMs:
+
+- There is no native `type: ref`.
+- There is no native `list[string]` syntax.
+- Arrays are modeled with `repeated: true`.
+
+Supported field attributes:
+
+- `type`
+- `required`
+- `repeated`
+- `description`
+- `enum`
+- `default`
+- `format`
+- `pattern`
+- `unique`
+- `properties` for object fields
+
+Details:
+
+- `required: true` means the field must be present unless a `default` value exists.
+- `default` satisfies validation when the field is missing, but the CLI does not automatically write that value back into source files.
+- `unique: true` requires values to be unique across objects of the same entity.
+- `unique: true` is invalid when `repeated: true`.
+- `pattern` is enforced for identifier fields and string-like fields.
+- Runtime `format` validation currently recognizes `email`, `uri`, and `url`.
+- Other format strings may still be stored in config, but they are not enforced by current runtime validation.
+
+Native enum example:
 
 ```yaml
-name: Mergeway Formatting
-
-on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "**/*.yaml"
-      - "**/*.yml"
-      - mergeway.yaml
-  push:
-    branches: [main]
-
-jobs:
-  mergeway-cli-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Install Go toolchain
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install Mergeway CLI
-        run: go install github.com/mergewayhq/mergeway-cli@latest
-
-      - name: Lint Mergeway formatting
-        run: mergeway-cli fmt --lint
+status:
+  type: enum
+  enum: [DRAFT, PUBLISHED]
+  required: true
 ```
 
-This workflow runs on every pull request and push to `main`. It checks out the code, installs Go and Mergeway, then runs `mergeway-cli fmt --lint` to lint YAML and JSON files. Adjust the `paths` filters if your data lives outside of YAML files. To ensure only valid PRs are merged, add a **CODEOWNERS** file that assigns responsibility for specific paths. For example:
+## Nested Properties
 
-```
-# mergeway schema is owned by the Data Platform team
-mergeway.yaml @myorg/data-platform
+This is the most important syntax detail for LLMs editing Mergeway schemas.
 
-# Data files are split by operational team
-data/users/ @myorg/inventory
-data/posts/ @myorg/content
-```
+Native nested objects are declared with `type: object` and `properties`.
 
-GitHub will automatically request reviews from the specified teams when a pull request touches those files. Pinning a version of the CLI (e.g. `@v0.11.0`) or caching the binary makes CI runs reproducible.
-
-#### 5. Enforcing formatting locally with pre‑commit
-
-Developers can catch formatting issues before pushing by using [pre‑commit](https://pre-commit.com/). The pre‑commit integration guide outlines the steps:
-
-1. **Install pre‑commit** once per workstation using `pipx install pre-commit`, `pip install pre-commit` or `brew install pre-commit`.
-2. **Add a configuration file** `.pre-commit-config.yaml` with a local hook that runs `mergeway-cli fmt` on your data directories:
-
-   ```yaml
-   repos:
-     - repo: local
-       hooks:
-         - id: mergeway-fmt
-           name: mergeway fmt
-           entry: mergeway-cli fmt
-           language: system
-           pass_filenames: false
-           files: ^data/(users|tags|posts|comments)/.*\.(ya?ml|json)$
-   ```
-
-   The `entry` runs `mergeway-cli fmt` to rewrite any out‑of‑format records, `pass_filenames: false` tells Mergeway to discover files via `mergeway.yaml`, and the `files` regex limits the hook to data directories.
-
-3. **Install the hook** into your Git repository:
-
-   ```bash
-   pre-commit install --hook-type pre-commit
-   # optionally also install a pre‑push hook
-   pre-commit install --hook-type pre-push
-   ```
-
-4. **Test the hook** by running it against all tracked files:
-
-   ```bash
-   pre-commit run mergeway-fmt --all-files
-   ```
-
-If the dataset already follows Mergeway’s canonical layout, the hook passes silently; otherwise it rewrites offending files or fails when using `--lint` mode. This keeps data consistent even before it reaches CI.
-
-#### 6. Next steps
-
-With the example repository and these guides you can experiment with Mergeway, extend the schema to reflect your own domain and automate formatting and validation. Use Mergeway’s other subcommands—such as `mergeway-cli gen-erd` to generate an entity relationship diagram and `mergeway-cli export` to snapshot the dataset—to further explore the capabilities. Mergeway encourages teams to treat their data like code: schemas live alongside source files, relationships are validated automatically and collaboration workflows ensure the right reviewers approve every change. Using the example repository as a starting point, you can adapt these patterns to your own projects.
-
-### Pre‑commit integration
-
-Goal: run `mergeway-cli fmt` automatically before every commit so contributors push consistently formatted data.
-
-#### Prerequisites
-
-- The Mergeway CLI (`mergeway-cli`) is already installed on developer machines and in your `PATH`.
-- Python 3.8+ is available.
-- Your repo includes the Mergeway workspace you want to protect.
-
-#### 1. Install pre-commit Locally
-
-Pick the method that matches your tooling:
-
-```bash
-pipx install pre-commit      # recommended
-# or
-pip install pre-commit       # inside a virtualenv
-# or
-brew install pre-commit      # macOS
-```
-
-#### 2. Configure the Hook
-
-Add a `.pre-commit-config.yaml` file in the repo root (or extend your existing config) with a local hook that invokes `mergeway-cli fmt`:
+Correct:
 
 ```yaml
-repos:
-  - repo: local
-    hooks:
-      - id: mergeway-fmt
-        name: mergeway fmt
-        entry: mergeway-cli fmt
-        language: system
-        pass_filenames: false
-        files: ^data/(products|categories)/.*\.(ya?ml|json)$
+metadata:
+  type: object
+  properties:
+    created_at:
+      type: string
+    creator:
+      type: string
 ```
 
-Why these settings?
-
-- `entry: mergeway-cli fmt` rewrites any out-of-format records before the commit proceeds (it defaults to in-place mode).
-- `pass_filenames: false` lets Mergeway discover files from `mergeway.yaml` rather than only the files staged by Git—useful when your workspace spans multiple folders.
-- `files` narrows execution to specific data directories so unrelated commits (docs, code) skip the hook. Adjust the regex for your layout or remove the key to run on everything.
-
-If you prefer CI-style failures, swap `--in-place` for `--lint`. The hook will then block the commit and print offending files without mutating them.
-
-#### 3. Install the Git Hook
-
-Tell pre-commit to write the hook into `.git/hooks/pre-commit`:
-
-```bash
-pre-commit install --hook-type pre-commit
-```
-
-To cover pushes from automation as well, you may also install it as a `pre-push` hook:
-
-```bash
-pre-commit install --hook-type pre-push
-```
-
-Each contributor only needs to run these commands once per clone.
-
-#### 4. Test the Setup
-
-Run the hook against every tracked file to confirm it formats data as expected:
-
-```bash
-pre-commit run mergeway-fmt --all-files
-```
-
-- If the repo already follows Mergeway’s canonical layout, the command prints `mergeway-fmt..................................Passed`.
-- If output shows `Failed`, inspect the listed files, rerun `mergeway-cli fmt <file>` manually if needed, then stage the changes.
-
-Developers now get immediate feedback before commits ever leave their machines, and CI stays clean because repositories reach GitHub with consistent Mergeway formatting.
-
-### GitHub Actions CI/CD
-
-Goal: wire Mergeway into GitHub so formatting stays consistent and ownership of datasets is clearly distributed across teams.
-
-#### Prerequisites
-
-- A repository that already contains a valid `mergeway.yaml` and the files it references.
-- GitHub Actions enabled for the repository.
-- Permission to configure GitHub teams (or at least invite individual maintainers) so CODEOWNERS can route reviews correctly.
-
-#### 1. Add a Mergeway Workflow
-
-Create `.github/workflows/mergeway-fmt.yml` to ensure every pull request keeps data formatted:
+Also correct for arrays of nested objects:
 
 ```yaml
-name: Mergeway Formatting
-
-on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "**/*.yaml"
-      - "**/*.yml"
-      - mergeway.yaml
-  push:
-    branches: [main]
-
-jobs:
-  mergeway-cli-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Install Go toolchain
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install Mergeway CLI
-        run: go install github.com/mergewayhq/mergeway-cli@latest
-
-      - name: Lint Mergeway formatting
-        run: mergeway-cli fmt --lint
+contacts:
+  type: object
+  repeated: true
+  properties:
+    label:
+      type: string
+      required: true
+    email:
+      type: string
+      format: email
+      required: true
 ```
 
-This job fails fast whenever a record under data directories is out of format, ensuring reviewers only see clean diffs. Adjust the `paths` filters if your workspace stores data outside YAML.
-
-#### 2. Explain the Failure Mode to Contributors
-
-`mergeway-cli fmt --lint` prints each offending file, so developers fix CI failures locally with `mergeway-cli fmt --in-place`. Capture that reminder in your pull‑request template or contributing guide so the workflow feels helpful rather than mysterious.
-
-#### 3. Assign Ownership with CODEOWNERS
-
-Formatting alone is not enough—you also want the right people reviewing Mergeway changes. GitHub’s CODEOWNERS file routes pull requests to specific teams or individuals based on path globs.
-
-Create `.github/CODEOWNERS` with entries for both teams and any shared files:
-
-```
-# Mergeway schema is owned by Data Platform
-mergeway.yaml @grainbox/data-platform
-
-# Data files are split by operational team
-data/products/ @grainbox/inventory-ops
-data/categories/ @grainbox/category-mgmt
-```
-
-Key considerations:
-
-- Teams need to exist inside your GitHub organization (for example `@org/team-slug`). If you don't have teams yet, either create them or list specific people.
-- You can mix teams and individuals to cover overlapping areas—for instance, keep `mergeway.yaml` owned by `@grainbox/data-platform` and also list `@lead-architect` for extra oversight.
-- CODEOWNERS applies to all pull requests, so combining it with the workflow guarantees every Mergeway change is reviewed by someone who understands that slice of the dataset.
-
-#### 4. Keep Versions Predictable
-
-Pin versions for long-lived branches by replacing `@latest` with a tag (e.g., `@v0.11.0`) or by caching the binary. Matching versions between local machines and CI prevents “works on my laptop” formatting diffs.
-
-Once the workflow and CODEOWNERS file land in the default branch, any pull request that touches Mergeway files will:
-
-1. Trigger the formatting check so contributors fix issues before merging.
-2. Automatically request reviewers from the right team, ensuring accountability for each dataset.
-
-That combination keeps Mergeway-managed data healthy as your GitHub organization grows.
-
-### JSON Schema & JSONPath
-
-Mergeway’s CLI lets you organize data from multiple sources into well‑typed entities. While simple projects can define fields inline, larger teams often prefer to re‑use existing JSON Schemas or load many records from a single JSON document. This guide shows how to install the CLI, author a JSON Schema‑backed entity, and leverage JSONPath selectors to extract multiple objects from a JSON file.
-
-#### Why JSON Schema?
-
-A Mergeway entity typically lists fields manually, but this can become repetitive if you already maintain JSON Schemas elsewhere. Mergeway supports a `json_schema` property that points at an on‑disk JSON Schema document. The path is resolved relative to the file that declares the entity and must live inside the repository—external `$ref` documents are disallowed. When `json_schema` is present you omit the `fields` map; Mergeway parses the schema and derives fields automatically. Arrays become repeated fields, objects produce nested groups, and enumerations translate into enum types. Keep schema files small and focus on one entity per file.
-
-#### Example: Customer Entity Backed by JSON Schema
-
-1. **Define a JSON Schema.** Create `schemas/customer.json` describing the shape of a customer record. The sample below shows required fields (`id`, `name`, `tier`), enumerates allowed billing tiers (`trial`, `starter`, `enterprise`), and defines an array of `contacts` with email validation.
-
-```jsonc
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "description": "Customer metadata defined with JSON Schema",
-  "required": ["id", "name", "tier"],
-  "properties": {
-    "id": { "type": "string" },
-    "name": { "type": "string" },
-    "tier": {
-      "oneOf": [
-        { "const": "trial" },
-        { "const": "starter" },
-        { "const": "enterprise" }
-      ]
-    },
-    "contacts": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["label", "email"],
-        "properties": {
-          "label": { "type": "string" },
-          "email": { "type": "string", "format": "email" }
-        }
-      }
-    }
-  }
-}
-```
-
-2. **Reference the schema in your workspace.** Create a `mergeway.yaml` that declares a `Customer` entity and points at the schema file. The `include` pattern tells Mergeway where to find customer records.
+Incorrect:
 
 ```yaml
-mergeway:
-  version: 1
+metadata:
+  type: object
+  fields:
+    created_at: string
+```
 
+Rules:
+
+- Object fields must define `properties`.
+- `properties` is the only supported nested-schema key for object fields.
+- Nested `fields:` inside a field is rejected by the config loader.
+- Nested required validation uses dotted paths like `metadata.creator`.
+- Repeated nested objects validate each array element against the same `properties` map.
+- Unique object fields are allowed; uniqueness is checked on the normalized structured value.
+
+Useful example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/nested-fields`
+
+## References and Reference Unions
+
+Reference example:
+
+```yaml
+author:
+  type: User
+  required: true
+```
+
+Repeated reference example:
+
+```yaml
+tags:
+  type: Tag
+  repeated: true
+```
+
+Reference union example:
+
+```yaml
+owner:
+  type: User | Team
+```
+
+Rules:
+
+- A plain entity name in `type` means the field stores that entity's identifier.
+- Repeated references are arrays of identifiers.
+- Reference unions are only supported in native `fields:` definitions.
+- A reference union value must resolve in exactly one target entity set.
+- If the same identifier exists in multiple union targets, validation fails as ambiguous.
+- Reference unions are not supported in `json_schema` entities.
+- Reference unions cannot be exported by `mergeway-cli config export`.
+
+Useful example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/reference-union`
+
+## JSON Schema Entities
+
+Instead of native `fields`, an entity can point to a local JSON Schema document:
+
+```yaml
 entities:
   Customer:
-    description: Customers defined via a JSON Schema file.
     identifier: id
     include:
-      - data/customers/*.yaml
+      - data/customers/*.json
     json_schema: schemas/customer.json
 ```
 
-3. **Add data files.** Each YAML file under `data/customers/` should match the schema. For example:
+Rules:
+
+- `json_schema` is resolved relative to the file that declares the entity.
+- The JSON Schema file must live inside the repository.
+- External `$ref` targets are rejected.
+- In-document refs like `#/$defs/...` are supported.
+- The root schema must describe an object.
+- When `json_schema` is present, omit native `fields`.
+
+Import behavior:
+
+- JSON Schema `type: object` becomes a native object field with `properties`.
+- JSON Schema `type: array` becomes `repeated: true` plus the item type.
+- JSON Schema `enum`, `const`, and eligible `oneOf` blocks map to native enum fields.
+- JSON Schema `x-reference-type` maps to Mergeway references.
+- JSON Schema reference unions in `x-reference-type` are rejected.
+- JSON Schema `description`, `format`, `pattern`, and `default` are imported.
+
+Useful example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/json-schema`
+
+## JSON Schema Export
+
+`mergeway-cli config export --type <Type>` exports a native Mergeway entity as JSON Schema.
+
+Current export behavior:
+
+- Primitive native fields become primitive JSON Schema properties.
+- Native `enum` fields become JSON Schema string enums.
+- Native object fields become JSON Schema objects with nested `properties`.
+- Repeated fields become JSON Schema arrays.
+- References become JSON Schema strings with `x-reference-type`.
+- Required fields populate the JSON Schema `required` list.
+- `description` is exported.
+
+Current limitations:
+
+- Reference unions are not exportable.
+- Export does not currently emit every native validation rule. In particular, do not rely on export to preserve `pattern`, `format`, `default`, or `unique`.
+
+Useful docs page: `https://mergewayhq.github.io/cli/cli-reference/config-export/`
+
+## Data Sources
+
+Entity `include` entries may be:
+
+1. A glob string:
 
 ```yaml
-# data/customers/customer-001.yaml
-id: cust-001
-name: Example Industries
-tier: enterprise
-contacts:
-  - label: Primary
-    email: ops@example.com
-  - label: Billing
-    email: finance@example.com
+include:
+  - data/users/*.yaml
 ```
 
-4. **Validate and explore.** Run `mergeway-cli validate` to ensure your data conforms to the schema. Use `mergeway-cli list --type Customer` to see loaded customers or `mergeway-cli gen-erd` to visualize relationships.
-
-JSON Schema centralizes validation rules and makes your data contracts explicit. Mergeway automatically converts nested objects into nested fields, sets array fields as repeated, and honours enum constraints. This reduces duplication and lets you re‑use the same schema in other tools.
-
-#### Loading Multiple Records with JSONPath
-
-Sometimes you want to load many objects from a single JSON file. Instead of splitting the file, you can provide a JSONPath selector in your `include` mapping. When several objects live in one file, use a selector to extract them.
-
-##### Users from a JSON Array
-
-1. **Prepare the source JSON.** Create `data/users.json` containing an array of users:
-
-```json
-{
-  "users": [
-    { "id": "User-001", "name": "Ada" },
-    { "id": "User-002", "name": "Grace" }
-  ]
-}
-```
-
-2. **Define the entity with a JSONPath selector.** In `mergeway.yaml`, specify the `path` and `selector` keys. The `selector` uses JSONPath syntax (`$.users[*]`) to iterate over the elements of the `users` array.
+2. A mapping with `path` and optional `selector`:
 
 ```yaml
-mergeway:
-  version: 1
+include:
+  - path: data/users.json
+    selector: "$.users[*]"
+```
 
+Meaning:
+
+- A plain string is shorthand for `path` with no selector.
+- Without a selector, Mergeway reads the whole file as one object.
+- If the file contains an `items:` array, Mergeway uses those items as multiple objects.
+- With a selector, each matched value must be an object.
+- A selector that matches no values is an error.
+
+Useful example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/jsonpath`
+
+## Inline Data
+
+Entities may embed records directly:
+
+```yaml
 entities:
-  User:
+  Person:
     identifier: id
     fields:
-      id: string
-      name: string
-    include:
-      - path: data/users.json
-        selector: "$.users[*]"
+      id:
+        type: string
+        required: true
+      name:
+        type: string
+        required: true
+    data:
+      - id: person-1
+        name: Alice
 ```
 
-3. **Load and validate.** Run `mergeway-cli validate` to confirm the JSONPath extracts objects (non‑objects trigger a format error). Then list users with `mergeway-cli list --type User`.
+Rules:
 
-**Tip:** Without a `selector`, Mergeway treats the entire JSON file as a single record or reads the `items` array if present. Selectors allow you to re‑use existing data files or exports.
+- Inline data is optional.
+- Inline data participates in read and validation flows.
+- If the same identifier exists inline and on disk, the file-backed record wins.
+- Inline data is read-only at runtime.
+- Use `update` and `delete`, not `data update` or `data delete`.
+- Entities using `identifier: $path` cannot define inline data.
 
-#### Best Practices
+## Data File Semantics
 
-- Store each entity’s schema in its own file and keep data organized in predictable folders (e.g., `data/customers/`, `data/users/`).
-- Run `mergeway-cli validate` after every change to catch schema or data errors early.
-- Use enums (`enum`/`const`/`oneOf`) and `format` constraints in your JSON Schema to enforce consistent values.
-- Combine JSON Schema and JSONPath when dealing with complex documents—derive field definitions from the schema and extract many objects with selectors.
+Data files may be YAML or JSON.
 
-By integrating JSON Schema and JSONPath into your Mergeway workspace you can model rich data structures, enforce contracts, and scale your repository organization.
+Top-level `type` in a data file is optional:
 
----
+```yaml
+type: Post
+id: post-001
+title: Launch Day
+author: user-alice
+```
 
-## Documentation Style Guide (docs/STYLEGUIDE.md)
+Notes:
 
-To keep the documentation clear and trustworthy, authors follow a consistent style:
+- The CLI usually infers type from the entity that included the file.
+- If a top-level `type` is present and conflicts with the expected entity, the file is rejected.
+- Before schema validation, Mergeway strips top-level `type` from the object payload.
+- Numeric identifiers are allowed when the schema expects `integer` or `number`.
 
-### Voice & Tone
+## Write and Read-Only Constraints
 
-- Use active voice and direct, outcome-focused verbs (`Run`, `Validate`, `Inspect`).
-- Avoid filler words (`just`, `simply`, `obviously`) and state preconditions and side effects explicitly.
-- Prefer short paragraphs (2–3 sentences). Break complex ideas into bullet points or ordered lists.
-- Address the reader directly (`You can…`, `Run…`).
+Create, update, and delete work on file-backed records inside the workspace root.
 
-### Structure & Headings
+Important constraints:
 
-- Each page begins with an `# H1` that mirrors the entry in the table of contents.
-- Follow a consistent heading hierarchy (`##`, then `###`). Try not to skip levels.
-- Include a brief "Why this matters" lead paragraph after the title.
-- Finish guides with a "Next steps" or "Related reading" section to aid navigation.
+- Selector-backed records are read-only for `create`, `update`, and `delete`.
+- External-root `$path` records are also read-only through mutating commands.
+- Those records can still be listed, fetched, validated, diffed, and exported.
 
-### Code & Examples
+## CLI Reference
 
-- Fence code blocks with language tags (```bash```, ```json```, etc.) so the documentation engine enables syntax highlighting and copy buttons.
-- Provide both minimal and realistic examples.
-- Inline commands with backticks (`mergeway-cli validate`) and link to the corresponding reference entry when it helps navigation.
+Global flags available to all commands:
 
-### Images & Diagrams
+- `--root`: workspace root, default `.`
+- `--config`: explicit config path, default `<root>/mergeway.yaml`
+- `--format`: `yaml` or `json`
+- `--fail-fast`: stop validation after the first error where supported
+- `--yes`: skip confirmation prompts
+- `--verbose`: enable extra logging
 
-- Store editable sources in `docs/assets-src/architecture/` and exported formats in `docs/src/assets/images/architecture/`.
-- Embed diagrams using standard Markdown: `![Workspace flow](../assets/images/architecture/workspace-flow.png)`.
-- Provide concise captions that explain the key takeaway.
+Command summary:
 
-### Content Types
+- `init`: scaffold a workspace with a starter `mergeway.yaml`
+- `entity list`: list discovered entities
+- `entity show <Entity>`: print the normalized entity definition
+- `list --type <Type>`: list object identifiers
+- `get --type <Type> <id>`: print one object
+- `diff [<left>] [<right>]`: compare logical data snapshots; configuration changes are excluded
+- `create --type <Type> [--file path] [--id value]`: create a record
+- `update --type <Type> --id <id> [--file path] [--merge]`: replace or merge a record
+- `delete --type <Type> <id>`: delete a record
+- `export [Type...]`: export records as YAML/JSON, optionally to `--output`
+- `fmt [files...]`: format data/config files using canonical field ordering
+- `validate [--phase ...]`: run format, schema, and reference checks
+- `config lint`: validate configuration only
+- `config export --type <Type>`: emit JSON Schema for one native entity
+- `gen-erd --path <file>`: write an ERD using Graphviz
+- `version`: print semantic version, commit hash, and build date
 
-Refer to templates when drafting:
+Validation specifics:
 
-- Overview pages: problem statement → capabilities → quick next steps.
-- Installation: prerequisites, commands, verification, and optional source build.
-- Getting Started: first validation walkthrough with expected output.
-- Concepts: definitions, relationships, and validation flow.
-- CLI Reference: usage, flags/options table, examples, exit codes, CLI version.
-- Schema Format: minimal example, required keys, common field attributes, and reference usage.
-- Troubleshooting: symptom → cause → fix, plus FAQ entries.
-- Changelog: version/date table with short highlights and any upgrade notes.
+- Successful validation prints `validation succeeded`.
+- Validation errors are written in the selected output format.
+- `mergeway-cli validate` exits non-zero when errors are found.
+- Requesting the `references` phase implicitly includes the `schema` phase.
 
-### Maintenance Rituals
+Formatting specifics:
 
-- For every feature PR, aim to update documentation or explicitly explain why no update is needed.
-- Review key chapters regularly and update the table of contents when refactoring sections.
-- When refactoring sections, ensure legacy links redirect or are noted in release notes.
+- `fmt` follows schema field order, including nested object properties.
+- `fmt --stdout` prints formatted output instead of rewriting files.
+- `fmt --lint` exits non-zero if any target file is not already canonical.
 
----
+## Examples Worth Reading
 
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/full`: complete multi-entity workspace
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/nested-fields`: native `properties` syntax
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/json-schema`: JSON Schema-backed entity
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/jsonpath`: selector-backed JSON records
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/reference-union`: native reference union
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/path-identifier`: `$path` identifier
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/external-root-path`: external-root `$path` behavior
+
+## End-User Resources
+
+- Docs home: `https://mergewayhq.github.io/cli/`
+- Getting started: `https://mergewayhq.github.io/cli/getting-started/`
+- Schema format: `https://mergewayhq.github.io/cli/getting-started/schema-spec/`
+- CLI reference: `https://mergewayhq.github.io/cli/cli-reference/`
+- JSON Schema guide: `https://mergewayhq.github.io/cli/guides/json-schema/`
+
+## Authoring Guidance for LLMs
+
+When generating or editing Mergeway configs:
+
+- Prefer native references like `type: User`, not invented keywords.
+- Use `repeated: true` for arrays.
+- Use `type: object` plus `properties` for nested fields.
+- Do not use nested `fields:` blocks inside a field.
+- Do not use `list[...]` syntax unless the codebase explicitly adds support later.
+- Keep reference unions out of `json_schema` entities and out of exported JSON Schema expectations.
+- Treat `format` carefully: only `email`, `uri`, and `url` are currently validated at runtime.
+- If you change schemas or data, run `mergeway-cli validate`.
+- If you are unsure about nested object syntax, use the nested-fields example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/nested-fields`
+
+## Primary End-User References
+
+- `https://mergewayhq.github.io/cli/`
+- `https://mergewayhq.github.io/cli/getting-started/schema-spec/`
+- `https://mergewayhq.github.io/cli/cli-reference/`
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/nested-fields`
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/json-schema`
+- `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/jsonpath`

@@ -1,32 +1,109 @@
-
 # Mergeway CLI
 
-> Mergeway CLI is a command‑line tool for managing Mergeway workspaces. It enables you to set up repositories, define schemas, manipulate data objects and validate them. All commands share consistent global flags (e.g. `--root` for workspace path, `--config` for config file, `--format` for output format, `--fail‑fast`, `--yes`, and `--verbose`)https://mergewayhq.github.io/cli/reference/#:~:text=Every%20command%20shares%20a%20set,or%20after%20the%20command%20name.
+Mergeway CLI manages structured metadata in Git-backed workspaces. It defines entity schemas in YAML or JSON Schema, loads YAML/JSON records from disk, validates schema and reference integrity, formats files deterministically, diffs logical data changes, and exports snapshots.
 
-This tool works on YAML or JSON files in a structured workspace. Use the commands below to initialize a workspace, create or update objects, inspect schemas, format files, generate ERD diagrams and perform validations. For a primer on terms and schema format, see the documentation's Basic Concepts and Schema Format pages.
+## LLM Quick Context
 
-## Commands
+- The workspace root contains `mergeway.yaml`.
+- Config files can `include` other YAML files that add more `entities`.
+- Each entity must declare exactly one of `fields` or `json_schema`.
+- References are expressed by setting `type` to another entity name, for example `author: User`. There is no native `type: ref`.
+- Arrays use `repeated: true`. There is no native `list[...]` field syntax.
+- Native nested objects use `type: object` plus `properties`. Do not nest `fields:` inside a field.
+- Reference unions such as `User | Team` are supported only in native `fields:` definitions. They are not supported in `json_schema` entities and cannot be exported with `config export`.
+- `identifier` can be a field name (`id`), a mapping (`field`, optional `generated`, optional `pattern`), or the reserved `$path`.
+- `identifier: $path` means the workspace-relative file path is the object ID. It only works for one-object-per-file sources and cannot be combined with inline `data`.
+- Records can come from inline `data`, globbed files in `include`, or `include` mappings with `path` plus JSONPath `selector`.
+- Selector-backed records and external-root `$path` records are readable, validatable, and exportable, but not writable via `create`, `update`, or `delete`.
+- `mergeway-cli validate` exits non-zero when errors are found.
 
-- [config export](https://mergewayhq.github.io/cli/reference/config-export/): Emit a JSON Schema for a given type. Usage: `mergeway-cli config export --type <type>`https://mergewayhq.github.io/cli/reference/config-export/#:~:text=mergeway.
-- [config lint](https://mergewayhq.github.io/cli/reference/config-lint/): Validate configuration files (and includes) without touching data; run after editing `mergeway.yaml`https://mergewayhq.github.io/cli/reference/config-lint/#:~:text=mergeway.
-- [create](https://mergewayhq.github.io/cli/reference/create/): Create a new object file that conforms to an entity definition. Use `--type`, optionally `--file` to read data from a YAML/JSON file and `--id` to override the identifierhttps://mergewayhq.github.io/cli/reference/create/#:~:text=mergeway.
-- [delete](https://mergewayhq.github.io/cli/reference/delete/): Remove an object file from the workspace. Pass `--type` and the object ID; use `--yes` to bypass confirmationhttps://mergewayhq.github.io/cli/reference/delete/#:~:text=mergeway.
-- [entity list](https://mergewayhq.github.io/cli/reference/entity-list/): List every entity Mergeway discovers from your configuration; no flags requiredhttps://mergewayhq.github.io/cli/reference/entity-list/#:~:text=mergeway.
-- [entity show](https://mergewayhq.github.io/cli/reference/entity-show/): Print the normalized schema for a given entity; use `entity show <entity>` with optional `--format` for JSON outputhttps://mergewayhq.github.io/cli/reference/entity-show/#:~:text=mergeway.
-- [export](https://mergewayhq.github.io/cli/reference/export/): Export repository objects into a single YAML or JSON document. Optional `--output` writes to a file; you can specify which entities to includehttps://mergewayhq.github.io/cli/reference/export/#:~:text=mergeway.
-- [fmt](https://mergewayhq.github.io/cli/reference/fmt/): Format one or more data or configuration files using Mergeway’s canonical ordering. It can rewrite files in place (`--in‑place`), print to stdout (`--stdout`) or run in lint mode (`--lint`)https://mergewayhq.github.io/cli/reference/fmt/#:~:text=mergeway.
-- [gen‑erd](https://mergewayhq.github.io/cli/reference/gen-erd/): Generate an entity relationship diagram (ERD) of your data model. It requires Graphviz’s `dot` executable and writes to the path specified by `--path`https://mergewayhq.github.io/cli/reference/gen-erd/#:~:text=mergeway.
-- [get](https://mergewayhq.github.io/cli/reference/get/): Print the fields of one object. Pass `--type` and an object ID; optionally use `--format` to output JSONhttps://mergewayhq.github.io/cli/reference/get/#:~:text=mergeway.
-- [init](https://mergewayhq.github.io/cli/reference/init/): Scaffold the directory layout and default configuration for a Mergeway workspace at the specified root (default `.`)https://mergewayhq.github.io/cli/reference/init/#:~:text=mergeway.
-- [list](https://mergewayhq.github.io/cli/reference/list/): List object identifiers for a given type. You can add a `--filter key=value` to narrow resultshttps://mergewayhq.github.io/cli/reference/list/#:~:text=mergeway.
-- [update](https://mergewayhq.github.io/cli/reference/update/): Modify an existing object by replacing it or merging fields. Use `--type`, `--id`, optionally `--file` for the payload and `--merge` to merge fields instead of replacing the objecthttps://mergewayhq.github.io/cli/reference/update/#:~:text=mergeway.
-- [validate](https://mergewayhq.github.io/cli/reference/validate/): Check schemas, records and references and emit formatted errors. Run phases (`format`, `schema`, `references`) selectively with `--phase`, and use `--fail‑fast` to stop on the first errorhttps://mergewayhq.github.io/cli/reference/validate/#:~:text=mergeway.
-- [version](https://mergewayhq.github.io/cli/reference/version/): Display the CLI build metadata including semantic version, commit hash and build date; no flags requiredhttps://mergewayhq.github.io/cli/reference/version/#:~:text=mergeway.
+## Canonical Native Schema Pattern
 
-## Optional
+```yaml
+mergeway:
+  version: 1
 
-These pages provide additional context and walkthroughs:
+entities:
+  Post:
+    description: Blog posts
+    identifier: id
+    include:
+      - data/posts/*.yaml
+    fields:
+      id:
+        type: string
+        required: true
+      title:
+        type: string
+        required: true
+      author:
+        type: User
+        required: true
+      status:
+        type: enum
+        enum: [DRAFT, PUBLISHED]
+        required: true
+      metadata:
+        type: object
+        properties:
+          created_at:
+            type: string
+          editor:
+            type: User
+      contacts:
+        type: object
+        repeated: true
+        properties:
+          label:
+            type: string
+            required: true
+          email:
+            type: string
+            format: email
+```
 
-- [Example Walkthrough](https://mergewayhq.github.io/cli/guides/example-walkthrough/): A step‑by‑step example that demonstrates setting up a workspace, defining entities and performing operations.
-- [GitHub Actions CI/CD](https://mergewayhq.github.io/cli/guides/github-actions-ci-cd/): Guidance on integrating Mergeway commands into continuous integration workflows.
-- [Pre‑commit integration](https://mergewayhq.github.io/cli/guides/pre-commit-integration/): How to enforce formatting and validation in a pre‑commit hook.
+Important details:
+
+- Native nested object fields must use `properties`.
+- Repeated arrays are modeled with `repeated: true` on the same field definition.
+- Native enums use `type: enum` plus an `enum:` list.
+- Type names must start with an uppercase letter. Field/property names use letters, digits, `_`, and `-`.
+
+## Useful Field Attributes
+
+- `required`: field must be present unless a `default` is defined.
+- `repeated`: field value must be an array.
+- `description`: human-readable context.
+- `enum`: allowed values when `type: enum`.
+- `default`: used when the field is missing during validation; it is not automatically written back to source files.
+- `unique`: field value must be unique across objects of the same entity. Not allowed together with `repeated: true`.
+- `pattern`: regex constraint for identifier fields and string-like fields.
+- `format`: runtime validation currently recognizes `email`, `uri`, and `url`.
+
+## Command Surface
+
+- `init`: scaffold a workspace.
+- `entity list`, `entity show`: inspect discovered entities and normalized schema.
+- `list`, `get`, `create`, `update`, `delete`: work with records.
+- `diff`: compare Mergeway-managed data between snapshots; config changes are excluded.
+- `export`: emit a combined YAML/JSON snapshot.
+- `fmt`: canonicalize file ordering and formatting.
+- `validate`: run format, schema, and reference validation phases.
+- `config lint`: validate config only.
+- `config export --type <Type>`: emit JSON Schema for a native Mergeway entity.
+- `gen-erd --path <file>`: generate an ERD with Graphviz.
+- `version`: print build metadata.
+
+Global flags: `--root`, `--config`, `--format`, `--fail-fast`, `--yes`, `--verbose`.
+
+## High-Value Files
+
+- `llms-full.txt`: fuller reference for LLM ingestion.
+- Public docs: `https://mergewayhq.github.io/cli/`
+- Schema reference: `https://mergewayhq.github.io/cli/getting-started/schema-spec/`
+- Nested object example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/nested-fields`
+- JSON Schema example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/json-schema`
+- JSONPath selector example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/jsonpath`
+- Reference union example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/reference-union`
+- `$path` identifier example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/path-identifier`
+- External-root `$path` example: `https://github.com/mergewayhq/mergeway-cli/tree/main/examples/external-root-path`
